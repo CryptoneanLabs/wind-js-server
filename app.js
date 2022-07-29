@@ -15,7 +15,7 @@ var whitelist = [
 	'http://localhost:63342',
 	'http://localhost:3000',
 	'http://localhost:4000',
-	'https://blotecho.coded.one'
+	'https://blotecho.coded.one' //blotecho
 ];
 
 var corsOptions = {

@@ -15,7 +15,7 @@ var whitelist = [
 	'http://localhost:63342',
 	'http://localhost:3000',
 	'http://localhost:4000',
-	'http://danwild.github.io'
+	'https://blotecho.coded.one'
 ];
 
 var corsOptions = {

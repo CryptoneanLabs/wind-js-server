@@ -30,18 +30,18 @@ app.listen(port, function(err){
 
 app.use(express.static('public'));
 
-//app.get('/', cors(corsOptions), function(req, res){
-app.get('/', function(req, res){
+app.get('/', cors(corsOptions), function(req, res){
+//app.get('/', function(req, res){
     res.send('hello wind-js-server.. <br>go to /latest for wind data..<br> go to /latest_wx for misc weather');
 });
 
-//app.get('/alive', cors(corsOptions), function(req, res){
-app.get('/alive', function(req, res){
+app.get('/alive', cors(corsOptions), function(req, res){
+//app.get('/alive', function(req, res){
 	res.send('wind-js-server is alive');
 });
 
-//app.get('/latest', cors(corsOptions), function(req, res){
-app.get('/latest', function(req, res){
+app.get('/latest', cors(corsOptions), function(req, res){
+//app.get('/latest', function(req, res){
 
 	/**
 	 * Find and return the latest available 6 hourly pre-parsed JSON data for wind
@@ -66,8 +66,8 @@ app.get('/latest', function(req, res){
 
 });
 
-//app.get('/latest_wx', cors(corsOptions), function(req, res){
-app.get('/latest_wx', function(req, res){
+app.get('/latest_wx', cors(corsOptions), function(req, res){
+//app.get('/latest_wx', function(req, res){
 
 	/**
 	 * Find and return the latest available 6 hourly pre-parsed JSON data for weather

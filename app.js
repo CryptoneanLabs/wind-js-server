@@ -4,7 +4,7 @@ var http = require('http');
 var request = require('request');
 var fs = require('fs');
 var Q = require('q');
-var cors = require('cors');
+//var cors = require('cors');
 
 var app = express();
 var port = process.env.PORT || 7000;
@@ -12,13 +12,11 @@ var baseDir ='https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_1p00.pl';
 
 // cors config
 var whitelist = [
-	'http://localhost:63342',
-	'http://localhost:3000',
-	'http://localhost:4000',
-	'https://blotecho.coded.one' //blotecho
+    'https://blotecho.coded.one'
 ];
 
 var corsOptions = {
+	origin: '*',
 	origin: function(origin, callback){
 		var originIsWhitelisted = whitelist.indexOf(origin) !== -1;
 		callback(null, originIsWhitelisted);
@@ -29,18 +27,23 @@ app.listen(port, function(err){
 	console.log("running server on port "+ port);
 });
 
-app.get('/', cors(corsOptions), function(req, res){
-    res.send('hello wind-js-server.. go to /latest for wind data..');
+app.use(express.static('public'));
+
+//app.get('/', cors(corsOptions), function(req, res){
+app.get('/', function(req, res){
+    res.send('hello wind-js-server.. <br>go to /latest for wind data..<br> go to /latest_wx for misc weather');
 });
 
-app.get('/alive', cors(corsOptions), function(req, res){
+//app.get('/alive', cors(corsOptions), function(req, res){
+app.get('/alive', function(req, res){
 	res.send('wind-js-server is alive');
 });
 
-app.get('/latest', cors(corsOptions), function(req, res){
+//app.get('/latest', cors(corsOptions), function(req, res){
+app.get('/latest', function(req, res){
 
 	/**
-	 * Find and return the latest available 6 hourly pre-parsed JSON data
+	 * Find and return the latest available 6 hourly pre-parsed JSON data for wind
 	 *
 	 * @param targetMoment {Object} UTC moment
 	 */
@@ -62,7 +65,34 @@ app.get('/latest', cors(corsOptions), function(req, res){
 
 });
 
-app.get('/nearest', cors(corsOptions), function(req, res, next){
+//app.get('/latest_wx', cors(corsOptions), function(req, res){
+app.get('/latest_wx', function(req, res){
+
+	/**
+	 * Find and return the latest available 6 hourly pre-parsed JSON data for weather
+	 *
+	 * @param targetMoment {Object} UTC moment
+	 */
+	function sendLatest(targetMoment){
+
+		var stamp = moment(targetMoment).format('YYYYMMDD') + roundHours(moment(targetMoment).hour(), 6);
+		var fileName = __dirname +"/json-wx-data/"+ stamp +".json";
+
+		res.setHeader('Content-Type', 'application/json');
+		res.sendFile(fileName, {}, function (err) {
+			if (err) {
+				console.log(stamp +' doesnt exist yet, trying previous interval..');
+				sendLatest(moment(targetMoment).subtract(6, 'hours'));
+			}
+		});
+	}
+
+	sendLatest(moment().utc());
+
+});
+
+//app.get('/nearest', cors(corsOptions), function(req, res, next){
+app.get('/nearest', function(req, res, next){
 
 	var time = req.query.timeIso;
 	var limit = req.query.searchLimit;
@@ -114,9 +144,8 @@ app.get('/nearest', cors(corsOptions), function(req, res, next){
  *
  */
 setInterval(function(){
-
 	run(moment.utc());
-
+	run_wx(moment.utc());
 }, 900000);
 
 /**
@@ -124,21 +153,32 @@ setInterval(function(){
  * @param targetMoment {Object} moment to check for new data
  */
 function run(targetMoment){
-
-	getGribData(targetMoment).then(function(response){
+    console.log("Get WIND");
+    /* get wind data from noaa */
+	getWindGribData(targetMoment).then(function(response){
 		if(response.stamp){
-			convertGribToJson(response.stamp, response.targetMoment);
+			convertWindGribToJson(response.stamp, response.targetMoment);
+		}
+	});
+}
+
+function run_wx(targetMoment){
+    console.log("Get WX");
+    /* get misc weather data */
+	getWxGribData(targetMoment).then(function(response){
+		if(response.stamp){
+			convertWxGribToJson(response.stamp, response.targetMoment);
 		}
 	});
 }
 
 /**
  *
- * Finds and returns the latest 6 hourly GRIB2 data from NOAAA
+ * Finds and returns the latest 6 hourly wind GRIB2 data from NOAAA
  *
  * @returns {*|promise}
  */
-function getGribData(targetMoment){
+function getWindGribData(targetMoment){
 
 	var deferred = Q.defer();
 
@@ -151,22 +191,25 @@ function getGribData(targetMoment){
         }
 
 		var stamp = moment(targetMoment).format('YYYYMMDD') + roundHours(moment(targetMoment).hour(), 6);
-		var urlstamp = stamp.slice(0,8)+'/'+stamp.slice(8,10)+'/atmos';
+    	var urlstamp = stamp.slice(0,8)+'/'+stamp.slice(8,10)+'/atmos';
+
 		request.get({
 			url: baseDir,
-			qs: {
-			  file: 'gfs.t' + roundHours(moment(targetMoment).hour(), 6) + 'z.pgrb2.1p00.f000',
-			  lev_10_m_above_ground: 'on',
-			  lev_surface: 'on',
-			  var_TMP: 'on',
-			  var_UGRD: 'on',
-			  var_VGRD: 'on',
-			  leftlon: 0,
-			  rightlon: 360,
-			  toplat: 90,
-			  bottomlat: -90,
-			  dir: '/gfs.' + urlstamp,
-			},
+	        qs: {
+	          file: 'gfs.t' + roundHours(moment(targetMoment).hour(), 6) + 'z.pgrb2.1p00.f000',
+	          lev_10_m_above_ground: 'on',
+				lev_surface: 'on',
+                lev_mean_sea_level:'on',
+				var_TMP: 'on',
+				var_UGRD: 'on',
+				var_VGRD: 'on', 
+                var_PRMSL: 'on',
+				leftlon: 0,
+				rightlon: 360,
+				toplat: 90,
+				bottomlat: -90,
+	          dir: '/gfs.' + urlstamp,
+	        },
 
 		}).on('error', function(err){
 			// console.log(err);
@@ -211,14 +254,14 @@ function getGribData(targetMoment){
 	return deferred.promise;
 }
 
-function convertGribToJson(stamp, targetMoment){
+function convertWindGribToJson(stamp, targetMoment){
 
 	// mk sure we've got somewhere to put output
 	checkPath('json-data', true);
 
 	var exec = require('child_process').exec, child;
 
-	child = exec('./converter/bin/grib2json --data --output json-data/'+stamp+'.json --names --compact grib-data/'+stamp+'.f000',
+	child = exec('converter/bin/grib2json --data --output json-data/'+stamp+'.json --names --compact grib-data/'+stamp+'.f000',
 		{maxBuffer: 500*1024},
 		function (error, stdout, stderr){
 
@@ -238,12 +281,130 @@ function convertGribToJson(stamp, targetMoment){
 
 				if(!checkPath('json-data/'+ prevStamp +'.json', false)){
 
-					console.log("attempting to harvest older data "+ stamp);
+					console.log("attempting to harvest older wind data "+ stamp);
 					run(prevMoment);
 				}
 
 				else {
-					console.log('got older, no need to harvest further');
+					console.log('got older, no need to harvest wind further');
+				}
+			}
+		});
+}
+
+/**
+ *
+ * Finds and returns the latest 6 hourly wx GRIB2 data from NOAAA
+ *
+ * @returns {*|promise}
+ */
+function getWxGribData(targetMoment){
+
+	var deferred = Q.defer();
+
+	function runQuery(targetMoment){
+
+        // only go 2 weeks deep
+		if (moment.utc().diff(targetMoment, 'days') > 30){
+	        console.log('hit limit, harvest complete or there is a big gap in wx data..');
+            return;
+        }
+
+		// var stamp = moment(targetMoment).format('YYYYMMDD') + roundHours(moment(targetMoment).hour(), 6);
+		var stamp = moment(targetMoment).format('YYYYMMDD') + roundHours(moment(targetMoment).hour(), 6);
+    	var urlstamp = stamp.slice(0,8)+'/'+stamp.slice(8,10)+'/atmos';
+
+		request.get({
+			url: baseDir,
+			qs: {
+				file: 'gfs.t'+ roundHours(moment(targetMoment).hour(), 6) +'z.pgrb2.1p00.f000',
+				var_PRMSL: 'on',
+				var_CWAT: 'on',
+				var_PWAT: 'on',
+				leftlon: 0,
+				rightlon: 360,
+				toplat: 90,
+				bottomlat: -90,
+				dir: '/gfs.'+urlstamp
+			}
+
+		}).on('error', function(err){
+			// console.log(err);
+			runQuery(moment(targetMoment).subtract(6, 'hours'));
+
+		}).on('response', function(response) {
+
+			console.log('response '+response.statusCode + ' | '+stamp);
+
+			if(response.statusCode != 200){
+				runQuery(moment(targetMoment).subtract(6, 'hours'));
+			}
+
+			else {
+				// don't rewrite stamps
+				if(!checkPath('json-wx-data/'+ stamp +'.json', false)) {
+
+					console.log('wx piping ' + stamp);
+
+					// mk sure we've got somewhere to put output
+					checkPath('grib-wx-data', true);
+
+					// pipe the file, resolve the valid time stamp
+					var file = fs.createWriteStream("grib-wx-data/"+stamp+".f000");
+					response.pipe(file);
+					file.on('finish', function() {
+						file.close();
+						deferred.resolve({stamp: stamp, targetMoment: targetMoment});
+					});
+
+				}
+				else {
+					console.log('already have wx '+ stamp +', not looking further');
+					deferred.resolve({stamp: false, targetMoment: false});
+				}
+			}
+		});
+
+	}
+
+	runQuery(targetMoment);
+	return deferred.promise;
+}
+
+
+function convertWxGribToJson(stamp, targetMoment){
+
+	// mk sure we've got somewhere to put output
+	checkPath('json-wx-data', true);
+
+	var exec = require('child_process').exec, child;
+
+	child = exec('converter/bin/grib2json --data --output json-wx-data/'+stamp+'.json --names --compact grib-wx-data/'+stamp+'.f000',
+		{maxBuffer: 500*1024},
+		function (error, stdout, stderr){
+
+			if(error){
+				console.log('exec error: ' + error);
+			}
+
+			else {
+				console.log("converted..");
+
+				// don't keep raw grib data
+				exec('rm grib-wx-data/*');
+
+				// if we don't have older stamp, try and harvest one
+				var prevMoment = moment(targetMoment).subtract(6, 'hours');
+				var prevStamp = prevMoment.format('YYYYMMDD') + roundHours(prevMoment.hour(), 6);
+
+				if(!checkPath('json-wx-data/'+ prevStamp +'.json', false)){
+
+					console.log("attempting to harvest older wx data "+ stamp);
+					run_wx(prevMoment);
+				}
+
+				else {
+					console.log('got older, no need to harvest wx further');
 				}
 			}
 		});
@@ -287,3 +448,4 @@ function checkPath(path, mkdir) {
 
 // init harvest
 run(moment.utc());
+run_wx(moment.utc());

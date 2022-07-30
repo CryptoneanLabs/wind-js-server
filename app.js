@@ -21,11 +21,7 @@ var whitelist = [
 ];
 
 var corsOptions = {
-	origin: '*',
-	origin: function(origin, callback){
-		var originIsWhitelisted = whitelist.indexOf(origin) !== -1;
-		callback(null, originIsWhitelisted);
-	}
+	origin: '*'
 };
 
 app.listen(port, function(err){

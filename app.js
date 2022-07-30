@@ -4,7 +4,7 @@ var http = require('http');
 var request = require('request');
 var fs = require('fs');
 var Q = require('q');
-//var cors = require('cors');
+var cors = require('cors');
 
 var app = express();
 var port = process.env.PORT || 7000;

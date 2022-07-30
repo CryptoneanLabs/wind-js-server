@@ -12,7 +12,12 @@ var baseDir ='https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_1p00.pl';
 
 // cors config
 var whitelist = [
-    'https://blotecho.coded.one'
+	'http://localhost',
+	'http://localhost:63342',
+	'http://localhost:3000',
+	'http://localhost:4500',
+	'http://localhost:4000',
+	'https://blotecho.coded.one'
 ];
 
 var corsOptions = {
